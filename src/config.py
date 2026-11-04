@@ -11,6 +11,6 @@ DB_PATH = BASE_DIR / "condominio.db"
 DB_URL = f"sqlite+aiosqlite:///{DB_PATH.as_posix()}"
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 APP_NAME = "residencial_aurora_app"
 DEFAULT_USER_ID = "morador"

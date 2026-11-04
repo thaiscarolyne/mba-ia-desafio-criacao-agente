@@ -224,3 +224,50 @@ Para executar a suíte de testes de integração e validação das garantias:
 ```bash
 uv run pytest -v
 ```
+
+---
+
+## Demonstração dos Fluxos e Evidências (Swagger UI)
+
+Os fluxos abaixo foram validados diretamente na interface interativa do Swagger (`http://localhost:8000/docs`), demonstrando o funcionamento determinístico da API e das garantias exigidas:
+
+### 1. Estado Inicial das Reservas
+Consulta à rota de verificação `GET /apartamentos/101/reservas` comprovando o estado inicial dos dados com a reserva `RSV-1377` da quadra poliesportiva:
+
+![Estado Inicial 101](prints/img.png)
+
+---
+
+### 2. Criação de Sessão Autenticada
+Criação da sessão do morador via `POST /sessoes` com `{"apartamento": "101"}`, retornando o `session_id` e fixando o apartamento no estado seguro da sessão:
+
+![Criação da Sessão](prints/img_1.png)
+
+---
+
+### 3. Garantia 1: Cobrança com Confirmação Pendente
+Envio da mensagem *"Quero reservar o salão de festas para 2030-04-20"*. Como o salão possui taxa de R$ 150,00 (`taxa > 0`), o assistente suspende a execução e devolve a confirmação em `confirmacoes_pendentes` com ID único e detalhes da ação, sem gravar nada previamente no banco:
+
+![Confirmação Pendente](prints/img_2.png)
+
+---
+
+### 4. Aprovação via Rota `/confirmacoes` e Retomada no Especialista
+Envio da aprovação via `POST /sessoes/{id}/confirmacoes` com `{"confirmado": true}`. O ADK Runner retoma a execução no `EspecialistaReservas`, que grava a reserva no SQLite, gera o código único `RSV-1140` e retorna a confirmação com `confirmacoes_pendentes: []`:
+
+![Aprovação de Reserva](prints/img_3.png)
+
+---
+
+### 5. Verificação da Nova Reserva Gravada no Banco
+Nova consulta à rota administrativa `GET /apartamentos/101/reservas` confirmando a coexistência da reserva inicial `RSV-1377` e da nova reserva `RSV-1140`:
+
+![Verificação da Reserva no Banco](prints/img_4.png)
+
+---
+
+### 6. Garantia 4: Consulta Pontual ao Regulamento Interno
+Envio da mensagem *"Até que horas a piscina funciona aos domingos?"*. O `EspecialistaRegulamento` consulta especificamente o Capítulo IV do regulamento e responde com precisão o horário de fechamento às **20h** (Art. 22, Inciso II), sem carregar outros capítulos da convenção na sessão:
+
+![Consulta ao Regulamento](prints/img_5.png)
+
