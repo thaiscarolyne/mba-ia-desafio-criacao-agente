@@ -1,3 +1,13 @@
 .env
 .venv/
 __pycache__/
+*.py[cod]
+*$py.class
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.db
+*.db-journal
+*.db-wal
+condominio.db*
+.pytest_cache/

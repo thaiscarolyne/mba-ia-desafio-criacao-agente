@@ -1,0 +1,31 @@
+[project]
+name = "mba-ia-desafio-criacao-agente"
+version = "0.1.0"
+description = "Assistente virtual do Residencial Aurora com Google ADK e FastAPI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.21.0",
+    "fastapi>=0.115.0",
+    "google-adk==2.9.1",
+    "greenlet>=3.1.1",
+    "pydantic>=2.10.0",
+    "python-dotenv>=1.0.1",
+    "sqlalchemy>=2.0.38",
+    "uvicorn>=0.34.0",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.3",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
