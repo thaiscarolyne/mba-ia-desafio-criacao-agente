@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 from src.main import app
@@ -12,6 +13,14 @@ from src.database import (
     consumir_confirmacao_pendente
 )
 from src.tools.regulamento import consultar_regulamento
+from src.tools.reservas import (
+    normalizar_area,
+    _carregar_taxa_area,
+    precisa_confirmacao_reserva,
+    criar_reserva,
+    cancelar_reserva,
+    checar_disponibilidade_area
+)
 
 @pytest.fixture(autouse=True)
 def setup_database():
@@ -126,3 +135,58 @@ def test_codigos_reservas_unicos_nao_repetem():
     assert cod1 != cod2
     assert cod1 not in ["RSV-1377", "RSV-4821", "RSV-2950"]
     assert cod2 not in ["RSV-1377", "RSV-4821", "RSV-2950"]
+
+def test_normalizacao_area_e_recusa_area_desconhecida():
+    """
+    Validação da normalização de área antes de decidir confirmação e recusa de área desconhecida:
+    - 'salao de festas', 'Salão de festas', 'salao-de-festas' normalizam para 'salao-de-festas' e exigem confirmação (taxa 150 > 0).
+    - 'churrasqueira' exige confirmação (taxa 80 > 0).
+    - 'quadra' e 'quadra poliesportiva' não exigem confirmação (taxa 0).
+    - Áreas desconhecidas (ex: 'piscina', 'cinema') não geram confirmação prévia e são recusadas na tool.
+    """
+    # 1. Normalização pré-confirmação
+    assert normalizar_area("salao de festas") == "salao-de-festas"
+    assert normalizar_area("Salão de Festas") == "salao-de-festas"
+    assert normalizar_area("salao-de-festas") == "salao-de-festas"
+    assert normalizar_area("salão") == "salao-de-festas"
+    assert normalizar_area("churrasqueira") == "churrasqueira"
+    assert normalizar_area("quadra poliesportiva") == "quadra"
+    assert normalizar_area("piscina") is None
+    assert normalizar_area("desconhecido") is None
+
+    # 2. Taxas carregadas corretamente mesmo com variações no texto
+    assert _carregar_taxa_area("salao de festas") == 150.0
+    assert _carregar_taxa_area("Salão de Festas") == 150.0
+    assert _carregar_taxa_area("churrasqueira") == 80.0
+    assert _carregar_taxa_area("quadra poliesportiva") == 0.0
+    assert _carregar_taxa_area("piscina") is None
+
+    # 3. Decisão de confirmação
+    assert precisa_confirmacao_reserva("salao de festas", "2030-04-20") is True
+    assert precisa_confirmacao_reserva("Salão de Festas", "2030-04-20") is True
+    assert precisa_confirmacao_reserva("churrasqueira", "2030-04-20") is True
+    assert precisa_confirmacao_reserva("quadra", "2030-04-20") is False
+    assert precisa_confirmacao_reserva("quadra poliesportiva", "2030-04-20") is False
+    assert precisa_confirmacao_reserva("piscina", "2030-04-20") is False
+
+    # 4. Execução da tool: área normalizada grava corretamente
+    ctx = MagicMock()
+    ctx.state = {"apartamento": "101"}
+
+    res_salao = criar_reserva("salao de festas", "2030-04-20", ctx)
+    assert res_salao["sucesso"] is True
+    assert res_salao["area"] == "salao-de-festas"
+
+    # 5. Execução da tool: área desconhecida é recusada e não é gravada como taxa zero
+    res_piscina = criar_reserva("piscina", "2030-04-25", ctx)
+    assert res_piscina["sucesso"] is False
+    assert "não é reconhecida" in res_piscina["mensagem"]
+
+    # Confere que a piscina não foi para o banco de reservas
+    reservas = listar_reservas_apartamento("101")
+    assert not any(r["area"] == "piscina" for r in reservas)
+
+    # 6. Checagem de disponibilidade para área desconhecida
+    disp = checar_disponibilidade_area("piscina", "2030-04-25")
+    assert disp["disponivel"] is False
+    assert "não é reconhecida" in disp["mensagem"]

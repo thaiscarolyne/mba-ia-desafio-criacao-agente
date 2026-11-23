@@ -71,10 +71,12 @@ As cinco garantias exigidas pelo desafio foram implementadas a nível de código
 
 ### Garantia 1: Cobrança ou acesso só com confirmação
 - **Arquivo**: `src/tools/reservas.py`
-  - **Trecho**: Linhas 24-30
+  - **Trecho**: Linhas 48-60 (`precisa_confirmacao_reserva` e `normalizar_area`)
     ```python
     def precisa_confirmacao_reserva(area: str, data: str, **kwargs: Any) -> bool:
         taxa = _carregar_taxa_area(area)
+        if taxa is None:
+            return False
         return taxa > 0.0
     ```
     Associada à tool em `src/agents/reservas.py`:
@@ -88,7 +90,7 @@ As cinco garantias exigidas pelo desafio foram implementadas a nível de código
     ```
 - **Arquivo**: `src/services/adk_runner.py` e `src/database.py`
   - **Trecho**: Método `responder_confirmacao` em `adk_runner.py` e função `consumir_confirmacao_pendente` em `database.py`.
-- **Por que não depende do modelo**: A obrigatoriedade de confirmação é configurada no Python via `require_confirmation` nas instâncias de `FunctionTool`. Quando a ação envolve cobrança (`taxa > 0`) ou acesso físico (`autorizar_visitante`), o runtime do ADK intercepta a execução e suspende o fluxo emitindo `adk_request_confirmation`. Mesmo que o morador escreva *"já estou confirmando aqui"*, a gravação no banco só ocorre após o envio explícito via rota `POST /sessoes/{id}/confirmacoes`. Respostas com IDs inexistentes ou já respondidos recebem HTTP 409 por validação atômica no banco de dados.
+- **Por que não depende do modelo**: A obrigatoriedade de confirmação é configurada no Python via `require_confirmation` nas instâncias de `FunctionTool`. Antes de decidir se a reserva gera confirmação, a função `normalizar_area` padroniza variações como *"salao de festas"*, *"Salão"* ou *"salao-de-festas"*, garantindo que a taxa real de R$ 150,00 seja localizada em `dados/areas.json` mesmo com grafias divergentes do modelo. Áreas desconhecidas têm sua taxa retornada como `None` e são recusadas na execução da tool, impedindo que áreas inválidas sejam tratadas como taxa zero. Quando a ação envolve cobrança (`taxa > 0`) ou acesso físico (`autorizar_visitante`), o runtime do ADK intercepta a execução e suspende o fluxo emitindo `adk_request_confirmation`. Mesmo que o morador escreva *"já estou confirmando aqui"*, a gravação no banco só ocorre após o envio explícito via rota `POST /sessoes/{id}/confirmacoes`. Respostas com IDs inexistentes ou já respondidos recebem HTTP 409 por validação atômica no banco de dados.
 
 ---
 
